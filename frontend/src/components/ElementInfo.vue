@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useFEAStore } from '../store/fea';
+import { useFEAStore, HEATMAP_METRICS } from '../store/fea';
 
 const store = useFEAStore();
 
@@ -37,6 +37,17 @@ const color = computed(() => {
   if (store.selectedElement === null) return '#6b7280';
   return store.elementColors.get(store.selectedElement) || '#6b7280';
 });
+
+// 与图例 / 底部 / 侧栏共用同一份换算口径（HEATMAP_METRICS）
+const stressDisplay = computed(() =>
+  (selectedEl.value?.stress ?? 0) * HEATMAP_METRICS.stress.scale
+);
+const strainDisplay = computed(() =>
+  (selectedEl.value?.strain ?? 0) * HEATMAP_METRICS.strain.scale
+);
+const forceDisplay = computed(() =>
+  (selectedEl.value?.force ?? 0) * HEATMAP_METRICS.force.scale
+);
 </script>
 
 <template>
@@ -89,22 +100,22 @@ const color = computed(() => {
           <div class="bg-slate-900 rounded p-2">
             <div class="text-slate-500 text-[10px]">应力</div>
             <div class="text-sm font-bold" :style="{ color }">
-              {{ (selectedEl.stress / 1e6).toFixed(2) }}
-              <span class="text-[10px] text-slate-500">MPa</span>
+              {{ stressDisplay.toFixed(HEATMAP_METRICS.stress.decimals) }}
+              <span class="text-[10px] text-slate-500">{{ HEATMAP_METRICS.stress.unit }}</span>
             </div>
           </div>
           <div class="bg-slate-900 rounded p-2">
             <div class="text-slate-500 text-[10px]">应变</div>
             <div class="text-sm font-bold text-sky-400">
-              {{ (selectedEl.strain * 100).toFixed(4) }}
-              <span class="text-[10px] text-slate-500">%</span>
+              {{ strainDisplay.toFixed(HEATMAP_METRICS.strain.decimals) }}
+              <span class="text-[10px] text-slate-500">{{ HEATMAP_METRICS.strain.unit }}</span>
             </div>
           </div>
           <div class="bg-slate-900 rounded p-2">
             <div class="text-slate-500 text-[10px]">轴力</div>
             <div class="text-sm font-bold text-amber-400">
-              {{ (selectedEl.force / 1000).toFixed(2) }}
-              <span class="text-[10px] text-slate-500">kN</span>
+              {{ forceDisplay.toFixed(HEATMAP_METRICS.force.decimals) }}
+              <span class="text-[10px] text-slate-500">{{ HEATMAP_METRICS.force.unit }}</span>
             </div>
           </div>
         </div>

@@ -42,9 +42,9 @@ onMounted(() => {
     <!-- Bottom status bar -->
     <footer class="bg-slate-900 border-t border-slate-800 px-6 py-2 flex items-center gap-6 text-xs text-slate-400">
       <span>
-        最大应力:
-        <span class="text-red-400 font-bold">
-          {{ store.result ? (store.maxStress / 1e6).toFixed(2) + ' MPa' : '—' }}
+        {{ store.heatmapStats.spec.label }}:
+        <span class="font-bold" :class="store.heatmapStats.spec.textClass">
+          {{ store.result ? store.formatHeatmapValue(store.heatmapStats.max) : '—' }}
         </span>
       </span>
       <span>

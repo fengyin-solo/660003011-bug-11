@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
 import { useFEAStore } from '../store/fea';
+import { jetColormap } from '../utils/fea-solver';
 
 const store = useFEAStore();
 const canvas = ref<HTMLCanvasElement>();
@@ -196,12 +197,14 @@ function draw() {
   const legendH = H - 60;
   const legendW = 15;
 
+  // 色带必须与构件颜色共用同一套 jet 色阶：直接按 jetColormap 的函数采样，
+  // 顶端 t=1（红，最大），底端 t=0（深蓝，最小）。
   const gradient = ctx.createLinearGradient(0, legendY, 0, legendY + legendH);
-  gradient.addColorStop(0, 'rgb(255,0,0)');
-  gradient.addColorStop(0.25, 'rgb(255,255,0)');
-  gradient.addColorStop(0.5, 'rgb(0,255,0)');
-  gradient.addColorStop(0.75, 'rgb(0,255,255)');
-  gradient.addColorStop(1, 'rgb(0,0,128)');
+  const JET_STOPS = 16;
+  for (let i = 0; i <= JET_STOPS; i++) {
+    const f = i / JET_STOPS; // 0=顶端, 1=底端
+    gradient.addColorStop(f, jetColormap(1 - f, 0, 1));
+  }
 
   ctx.fillStyle = gradient;
   ctx.fillRect(legendX, legendY, legendW, legendH);
@@ -209,38 +212,33 @@ function draw() {
   ctx.lineWidth = 1;
   ctx.strokeRect(legendX, legendY, legendW, legendH);
 
-  // Legend labels
+  // Legend labels —— 区间端点与格式化都取自 store 的唯一口径，
+  // 与构件颜色归一化所用 min/max、底部状态栏、侧栏统计完全一致。
+  const stats = store.heatmapStats;
   ctx.fillStyle = '#94a3b8';
   ctx.font = '10px sans-serif';
-  ctx.textAlign = 'left';
-
-  let maxVal = 0, minVal = 0;
-  if (store.result) {
-    switch (store.heatmapMode) {
-      case 'stress':
-        maxVal = Math.max(...store.result.stresses.map(Math.abs));
-        break;
-      case 'strain':
-        maxVal = Math.max(...store.result.strains.map(Math.abs));
-        break;
-      case 'force':
-        maxVal = Math.max(...elements.map((e) => Math.abs(e.force)));
-        break;
-    }
-  }
-
-  const unit = store.heatmapMode === 'stress' ? 'MPa' :
-    store.heatmapMode === 'strain' ? '%' : 'kN';
-
   ctx.textAlign = 'right';
-  ctx.fillText(`${maxVal.toExponential(1)} ${unit}`, legendX - 4, legendY + 8);
-  ctx.fillText('0', legendX - 4, legendY + legendH);
+  ctx.textBaseline = 'middle';
+
+  if (store.result) {
+    const labelX = legendX - 4;
+    ctx.fillText(store.formatHeatmapValue(stats.max), labelX, legendY);
+    ctx.fillText(
+      store.formatHeatmapValue((stats.min + stats.max) / 2),
+      labelX,
+      legendY + legendH / 2
+    );
+    ctx.fillText(store.formatHeatmapValue(stats.min), labelX, legendY + legendH);
+  } else {
+    ctx.fillText('—', legendX - 4, legendY + legendH / 2);
+  }
 
   // Mode label
   ctx.save();
   ctx.translate(legendX + legendW + 10, legendY + legendH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#64748b';
   ctx.font = '11px sans-serif';
   ctx.fillText(store.heatmapMode.toUpperCase(), 0, 0);

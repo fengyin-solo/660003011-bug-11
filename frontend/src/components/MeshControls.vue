@@ -102,9 +102,9 @@ const store = useFEAStore();
     <div class="border-t border-slate-700 pt-2">
       <div class="grid grid-cols-2 gap-2 text-xs">
         <div class="bg-slate-900 rounded p-2">
-          <div class="text-slate-400">最大应力</div>
-          <div class="text-sm font-bold text-red-400">
-            {{ store.result ? (store.maxStress / 1e6).toFixed(2) + ' MPa' : '—' }}
+          <div class="text-slate-400">{{ store.heatmapStats.spec.label }}</div>
+          <div class="text-sm font-bold" :class="store.heatmapStats.spec.textClass">
+            {{ store.result ? store.formatHeatmapValue(store.heatmapStats.max) : '—' }}
           </div>
         </div>
         <div class="bg-slate-900 rounded p-2">
