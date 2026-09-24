@@ -63,6 +63,39 @@ export const useFEAStore = defineStore('fea', () => {
     if (node) node.fixed = !node.fixed;
   }
 
+  // ─── Heatmap display convention ───────────────────────────────────────────
+  // Single source of truth: raw solver values (Pa / unitless / N) are
+  // converted to display units (MPa / % / kN) exactly once, here. Legend
+  // ticks, element colors and stats all derive from the same extraction.
+  const HEATMAP_DISPLAY = {
+    stress: { unit: 'MPa', toDisplay: (v: number) => v / 1e6 },
+    strain: { unit: '%', toDisplay: (v: number) => v * 100 },
+    force: { unit: 'kN', toDisplay: (v: number) => v / 1000 },
+  } as const;
+
+  const heatmapUnit = computed(() => HEATMAP_DISPLAY[heatmapMode.value].unit);
+
+  // Per-element |values| of the current mode, in display units
+  const heatmapValues = computed<number[]>(() => {
+    const { toDisplay } = HEATMAP_DISPLAY[heatmapMode.value];
+    if (!result.value) return model.value.elements.map(() => 0);
+    switch (heatmapMode.value) {
+      case 'stress':
+        return result.value.stresses.map((v) => toDisplay(Math.abs(v)));
+      case 'strain':
+        return result.value.strains.map((v) => toDisplay(Math.abs(v)));
+      case 'force':
+        return model.value.elements.map((e) => toDisplay(Math.abs(e.force)));
+    }
+  });
+
+  // Color-scale endpoints and legend ticks come from this same range
+  const heatmapRange = computed(() => {
+    const values = heatmapValues.value;
+    if (values.length === 0) return { min: 0, max: 0 };
+    return { min: Math.min(...values), max: Math.max(...values) };
+  });
+
   // ─── Computed ─────────────────────────────────────────────────────────────
   const maxStress = computed(() => {
     if (!result.value) return 0;
@@ -83,23 +116,8 @@ export const useFEAStore = defineStore('fea', () => {
       return colors;
     }
 
-    let values: number[];
-    switch (heatmapMode.value) {
-      case 'stress':
-        values = result.value.stresses.map(Math.abs);
-        break;
-      case 'strain':
-        values = result.value.strains.map(Math.abs);
-        break;
-      case 'force':
-        values = model.value.elements.map((e) => Math.abs(e.force));
-        break;
-      default:
-        values = result.value.stresses.map(Math.abs);
-    }
-
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+    const values = heatmapValues.value;
+    const { min, max } = heatmapRange.value;
 
     for (let i = 0; i < model.value.elements.length; i++) {
       colors.set(
@@ -121,6 +139,9 @@ export const useFEAStore = defineStore('fea', () => {
     maxStress,
     maxDisplacement,
     elementColors,
+    heatmapUnit,
+    heatmapValues,
+    heatmapRange,
     loadPreset,
     solve,
     toggleDeformed,

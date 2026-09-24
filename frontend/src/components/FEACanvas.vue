@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
 import { useFEAStore } from '../store/fea';
+import { jetColormap } from '../utils/fea-solver';
 
 const store = useFEAStore();
 const canvas = ref<HTMLCanvasElement>();
@@ -17,6 +18,14 @@ function worldToScreen(x: number, y: number): [number, number] {
 
 function screenToWorld(sx: number, sy: number): [number, number] {
   return [(sx - offsetX) / scale, (sy - offsetY) / scale];
+}
+
+// Legend tick formatting for display-unit values (MPa / % / kN)
+function formatTick(v: number): string {
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 0.01 && a < 1000) return v.toFixed(2);
+  return v.toExponential(1);
 }
 
 function draw() {
@@ -196,12 +205,14 @@ function draw() {
   const legendH = H - 60;
   const legendW = 15;
 
+  // Sample the same jetColormap the elements use, so the legend scale
+  // and the element colors follow the exact same color rule
   const gradient = ctx.createLinearGradient(0, legendY, 0, legendY + legendH);
-  gradient.addColorStop(0, 'rgb(255,0,0)');
-  gradient.addColorStop(0.25, 'rgb(255,255,0)');
-  gradient.addColorStop(0.5, 'rgb(0,255,0)');
-  gradient.addColorStop(0.75, 'rgb(0,255,255)');
-  gradient.addColorStop(1, 'rgb(0,0,128)');
+  const STOPS = 16;
+  for (let i = 0; i <= STOPS; i++) {
+    // top of the bar = max value (t=1), bottom = min value (t=0)
+    gradient.addColorStop(i / STOPS, jetColormap(1 - i / STOPS, 0, 1));
+  }
 
   ctx.fillStyle = gradient;
   ctx.fillRect(legendX, legendY, legendW, legendH);
@@ -209,32 +220,18 @@ function draw() {
   ctx.lineWidth = 1;
   ctx.strokeRect(legendX, legendY, legendW, legendH);
 
-  // Legend labels
+  // Legend labels: same extraction and units as the element colors,
+  // the footer and the sidebar stats (via store.heatmapRange/heatmapUnit)
   ctx.fillStyle = '#94a3b8';
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'left';
 
-  let maxVal = 0, minVal = 0;
-  if (store.result) {
-    switch (store.heatmapMode) {
-      case 'stress':
-        maxVal = Math.max(...store.result.stresses.map(Math.abs));
-        break;
-      case 'strain':
-        maxVal = Math.max(...store.result.strains.map(Math.abs));
-        break;
-      case 'force':
-        maxVal = Math.max(...elements.map((e) => Math.abs(e.force)));
-        break;
-    }
-  }
-
-  const unit = store.heatmapMode === 'stress' ? 'MPa' :
-    store.heatmapMode === 'strain' ? '%' : 'kN';
+  const { min: minVal, max: maxVal } = store.heatmapRange;
+  const unit = store.heatmapUnit;
 
   ctx.textAlign = 'right';
-  ctx.fillText(`${maxVal.toExponential(1)} ${unit}`, legendX - 4, legendY + 8);
-  ctx.fillText('0', legendX - 4, legendY + legendH);
+  ctx.fillText(`${formatTick(maxVal)} ${unit}`, legendX - 4, legendY + 8);
+  ctx.fillText(`${formatTick(minVal)} ${unit}`, legendX - 4, legendY + legendH);
 
   // Mode label
   ctx.save();
